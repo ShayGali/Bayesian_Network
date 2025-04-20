@@ -96,7 +96,7 @@ public class Ex1 {
 
 //        String query = "P(B=F,E=T,A=T,M=T,J=F)";
         String query = "P(B=T|J=T,M=T),1";
-//
+
         double res = bayesNet.answerQuery(query);
 //         print the result with 5 decimal places rounded (if the remainder is 0.5 or more, round up, otherwise round down)
         System.out.printf("%s = %.5f\n", query, res);

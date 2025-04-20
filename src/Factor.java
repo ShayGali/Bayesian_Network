@@ -1,11 +1,21 @@
 import java.util.*;
 
+/**
+ * Represents a factor in a Bayesian network.
+ * A factor is defined over a set of variables and provides the probability
+ * for each possible assignment of outcomes to these variables.
+ */
 public class Factor {
     private final List<Variable> variables;
     private final double[] probabilities;
-
     private final Map<List<String>, Double> factorTable;
 
+    /**
+     * Constructs a Factor for the given variables and their probabilities.
+     *
+     * @param variables     The list of variables (parents + child, order matters).
+     * @param probabilities The probability values for each combination of outcomes.
+     */
     public Factor(List<Variable> variables, double[] probabilities) {
         this.variables = new ArrayList<>(variables);
         this.probabilities = Arrays.copyOf(probabilities, probabilities.length);
@@ -13,31 +23,40 @@ public class Factor {
         buildFactorTable();
     }
 
+    /**
+     * Returns the probability for the given assignment of variable outcomes.
+     *
+     * @param vars The list of VariableOutcome representing the assignment.
+     * @return The probability for the assignment.
+     * @throws IllegalArgumentException if the assignment is incomplete or not found.
+     */
     public double getProbability(List<VariableOutcome> vars) {
-        // built the key for the map
+        // map to hold the variable and its corresponding outcome
+        Map<Variable, String> outcomeMap = new HashMap<>();
+        for (VariableOutcome vo : vars) {
+            outcomeMap.put(vo.variable, vo.outcome);
+        }
+
+        // create the `key` for the factor table (the outcomes of the variables)
         List<String> key = new ArrayList<>();
         for (Variable currentVar : variables) {
-            String outcome = null;
-            for (VariableOutcome var : vars) {
-                if (var.variable.equals(currentVar)) {
-                    outcome = var.outcome;
-                    break;
-                }
-            }
+            String outcome = outcomeMap.get(currentVar);
             if (outcome == null) {
-                throw new IllegalArgumentException("Variable not found in the factor.");
+                throw new IllegalArgumentException("Variable not found in the factor: " + currentVar.getName());
             }
             key.add(outcome);
         }
 
-        // Check if the key exists in the factor table
         if (factorTable.containsKey(key)) {
             return factorTable.get(key);
         } else {
-            throw new IllegalArgumentException("Combination of outcomes not found in the factor table.");
+            throw new IllegalArgumentException("Combination of outcomes not found in the factor table: " + key);
         }
     }
 
+    /**
+     * Builds the factor table mapping each combination of outcomes to its probability.
+     */
     private void buildFactorTable() {
         int numVariables = variables.size();
         if (numVariables == 0) return;
@@ -72,6 +91,11 @@ public class Factor {
         }
     }
 
+    /**
+     * Returns a string representation of the factor's CPT.
+     *
+     * @return The CPT as a formatted string.
+     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

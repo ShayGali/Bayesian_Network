@@ -90,30 +90,34 @@ public class BayesNet {
                 fullAssignment.addAll(queryCombo);
 
                 double prob = calculateJointProbabilityFromVarOutcomeList(fullAssignment);
-                denominator += prob;
 
                 // if the query matches the evidence, add to the numerator
                 if (matchesQuery(queryCombo, qp.queryOutcomes)) {
                     numerator += prob;
+                } else { // we will add the numerator to the denominator in the edn
+                    denominator += prob;
                 }
             }
         }
+        denominator += numerator;
 
         // return the normalized probability
         return numerator / denominator;
     }
 
     // Helper class to hold parsed query/evidence parts
+
     /**
      * Helper class to hold parsed query and evidence parts.
      * It contains the query outcomes, evidence outcomes, and their respective variable names.
-        * This is used to simplify the parsing and matching process. 
+     * This is used to simplify the parsing and matching process.
      */
     private static class QueryParts {
         List<VariableOutcome> queryOutcomes;
         List<VariableOutcome> evidenceOutcomes;
         Set<String> queryVarNames;
         Set<String> evidenceVarNames;
+
         QueryParts(List<VariableOutcome> q, List<VariableOutcome> e) {
             this.queryOutcomes = q;
             this.evidenceOutcomes = e;
@@ -146,8 +150,8 @@ public class BayesNet {
     /**
      * Checks if the given assignment of variable outcomes matches the original query outcomes.
      * This is used to ensure that the correct outcomes are being considered in the calculation.
-     * 
-     * @param assignment the assignment of variable outcomes
+     *
+     * @param assignment    the assignment of variable outcomes
      * @param originalQuery the original query outcomes
      * @return true if the assignment matches the original query, false otherwise
      */
@@ -160,7 +164,7 @@ public class BayesNet {
         // Check that all variables in the original query match the assignment
         for (VariableOutcome orig : originalQuery) {
             if (!assignmentMap.containsKey(orig.variable.getName()) ||
-                !assignmentMap.get(orig.variable.getName()).equals(orig.outcome)) {
+                    !assignmentMap.get(orig.variable.getName()).equals(orig.outcome)) {
                 return false;
             }
         }
