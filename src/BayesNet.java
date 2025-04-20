@@ -62,74 +62,109 @@ public class BayesNet {
     }
 
     private double calculateProbForComplexQueryMethod1(String query) {
-        // remove the `P`, `parenthesis` and `method`
-        query = query.substring(2, query.length() - 3);
-        // split the query by `|` to get the `query` and `evidence`
-        String[] parts = query.split("\\|");
-        String queryPart = parts[0].trim();
-        String evidencePart = parts[1].trim();
+        // parse the query and evidence
+        QueryParts qp = parseQueryAndEvidence(query);
 
-        // split the query by `,` to get the variables and their outcomes
-        String[] queryVariables = queryPart.split(",");
-        String[] evidenceVariables = evidencePart.split(",");
+        // get the query and evidence variables
+        Set<String> allObservedVars = new HashSet<>();
+        allObservedVars.addAll(qp.queryVarNames);
+        allObservedVars.addAll(qp.evidenceVarNames);
 
-        // create a list of variables and their outcomes
-        Set<String> queryVariablesSet = new HashSet<>();
-        List<VariableOutcome> queryVariablesOutcomes = parseVariableOutcomes(queryVariables);
-        List<VariableOutcome> evidenceVariablesOutcomes = parseVariableOutcomes(evidenceVariables);
+        Set<String> hiddenVars = new HashSet<>(this.variables.keySet());
+        hiddenVars.removeAll(allObservedVars);
 
-        Set<String> queryVariablesNames = queryVariablesOutcomes.stream().map(variableOutcome -> variableOutcome.variable.getName()).collect(Collectors.toSet());
-        Set<String> evidenceVariablesNames = evidenceVariablesOutcomes.stream().map(variableOutcome -> variableOutcome.variable.getName()).collect(Collectors.toSet());
+        // get all combinations of the hidden variables and the query variables
+        List<List<VariableOutcome>> hiddenCombos = getAllVariableOutcomes(hiddenVars);
+        List<List<VariableOutcome>> queryCombos = getAllVariableOutcomes(qp.queryVarNames);
 
-        queryVariablesSet.addAll(queryVariablesNames);
-        queryVariablesSet.addAll(evidenceVariablesNames);
+        double numerator = 0.0; // the probability of the query & evidence
+        double denominator = 0.0; // the probability of the (query & evidence) + (!query & evidence)
 
-        // find all hidden variables
-        Set<String> hiddenVariablesSet = new HashSet<>(this.variables.keySet());
-        hiddenVariablesSet.removeAll(queryVariablesSet);
-
-
-        // calc the joint probability of the evidence and the query
-        // we use the law of total probability - so we calculate the joint probability of the evidence and the query and all combinations of the hidden variables
-        // go through all combinations of the hidden variables and combine them with the evidence and the query (the outcomes of them are not known)
-
-        double numerator = 0.0;
-        double denominator = 0.0;
-        List<List<VariableOutcome>> hiddenCombos = getAllVariableOutcomes(hiddenVariablesSet);
-        List<List<VariableOutcome>> queryCombos = getAllVariableOutcomes(queryVariablesSet);
-        // remove all query options that we calculated
+        // go through all combinations of the hidden variables and the query variables (the evidence is fixed)
+        // and calculate the joint probability for each combination
         for (List<VariableOutcome> queryCombo : queryCombos) {
             for (List<VariableOutcome> hiddenCombo : hiddenCombos) {
-                List<VariableOutcome> combo = new ArrayList<>(hiddenCombo);
-                // add the evidence to the combo
-                combo.addAll(evidenceVariablesOutcomes);
-                // add the query to the combo
-                combo.addAll(queryCombo);
-                // calculate the joint probability of the evidence and the query
-                double prob = calculateJointProbabilityFromVarOutcomeList(combo);
-                // add the joint probability to the total
+                List<VariableOutcome> fullAssignment = new ArrayList<>();
+                fullAssignment.addAll(hiddenCombo);
+                fullAssignment.addAll(qp.evidenceOutcomes);
+                fullAssignment.addAll(queryCombo);
+
+                double prob = calculateJointProbabilityFromVarOutcomeList(fullAssignment);
                 denominator += prob;
 
-                // check if the combination contains the query original outcomes - add the joint probability to the numerator
-                boolean containsQuery = true;
-                for (VariableOutcome variableOutcome : combo) {
-                    if (queryVariablesNames.contains(variableOutcome.variable.getName())) {
-                        // get the outcome from the original query
-                        for (VariableOutcome queryVariableOutcome : queryVariablesOutcomes) {
-                            if (variableOutcome.variable.getName().equals(queryVariableOutcome.variable.getName())) {
-                                containsQuery = variableOutcome.outcome.equals(queryVariableOutcome.outcome);
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (containsQuery) {
+                // if the query matches the evidence, add to the numerator
+                if (matchesQuery(queryCombo, qp.queryOutcomes)) {
                     numerator += prob;
                 }
             }
         }
 
+        // return the normalized probability
         return numerator / denominator;
+    }
+
+    // Helper class to hold parsed query/evidence parts
+    /**
+     * Helper class to hold parsed query and evidence parts.
+     * It contains the query outcomes, evidence outcomes, and their respective variable names.
+        * This is used to simplify the parsing and matching process. 
+     */
+    private static class QueryParts {
+        List<VariableOutcome> queryOutcomes;
+        List<VariableOutcome> evidenceOutcomes;
+        Set<String> queryVarNames;
+        Set<String> evidenceVarNames;
+        QueryParts(List<VariableOutcome> q, List<VariableOutcome> e) {
+            this.queryOutcomes = q;
+            this.evidenceOutcomes = e;
+            this.queryVarNames = new HashSet<>();
+            this.evidenceVarNames = new HashSet<>();
+            for (VariableOutcome vo : q) this.queryVarNames.add(vo.variable.getName());
+            for (VariableOutcome vo : e) this.evidenceVarNames.add(vo.variable.getName());
+        }
+    }
+
+    /**
+     * Parses the query and evidence from the given string.
+     * The string format is assumed to be "P(X=outcome1, Y=outcome2 | Z=outcome3, W=outcome4)"
+     * where X, Y are query variables and Z, W are evidence variables.
+     *
+     * @param query the query string
+     * @return a QueryParts object containing the parsed query and evidence outcomes
+     */
+    private QueryParts parseQueryAndEvidence(String query) {
+        String stripped = query.substring(2, query.length() - 3);
+        String[] parts = stripped.split("\\|");
+        String queryPart = parts[0].trim();
+        String evidencePart = parts[1].trim();
+
+        List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
+        List<VariableOutcome> evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
+        return new QueryParts(queryOutcomes, evidenceOutcomes);
+    }
+
+    /**
+     * Checks if the given assignment of variable outcomes matches the original query outcomes.
+     * This is used to ensure that the correct outcomes are being considered in the calculation.
+     * 
+     * @param assignment the assignment of variable outcomes
+     * @param originalQuery the original query outcomes
+     * @return true if the assignment matches the original query, false otherwise
+     */
+    private boolean matchesQuery(List<VariableOutcome> assignment, List<VariableOutcome> originalQuery) {
+        // Build a map from variable name to outcome for the assignment
+        Map<String, String> assignmentMap = new HashMap<>();
+        for (VariableOutcome vo : assignment) {
+            assignmentMap.put(vo.variable.getName(), vo.outcome);
+        }
+        // Check that all variables in the original query match the assignment
+        for (VariableOutcome orig : originalQuery) {
+            if (!assignmentMap.containsKey(orig.variable.getName()) ||
+                !assignmentMap.get(orig.variable.getName()).equals(orig.outcome)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private double calculateProbForComplexQueryMethod2(String query) {
