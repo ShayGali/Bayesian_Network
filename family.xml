@@ -1,0 +1,33 @@
+<NETWORK>
+    <VARIABLE>
+        <NAME>Father</NAME>
+        <OUTCOME>one</OUTCOME>
+        <OUTCOME>two</OUTCOME>
+        <OUTCOME>three</OUTCOME>
+    </VARIABLE>
+    <VARIABLE>
+        <NAME>Son</NAME>
+        <OUTCOME>v1</OUTCOME>
+        <OUTCOME>v2</OUTCOME>
+        <OUTCOME>v3</OUTCOME>
+    </VARIABLE>
+    <VARIABLE>
+        <NAME>Mother</NAME>
+        <OUTCOME>True</OUTCOME>
+        <OUTCOME>False</OUTCOME>
+    </VARIABLE>
+    <DEFINITION>
+        <FOR>Father</FOR>
+        <TABLE>0.5 0.25 0.25</TABLE>
+    </DEFINITION>
+    <DEFINITION>
+        <FOR>Son</FOR>
+        <GIVEN>Father</GIVEN>
+        <GIVEN>Mother</GIVEN>
+        <TABLE>0.11 0.12 0.77 0.13 0.14 0.73 0.15 0.16 0.69 0.17 0.18 0.65 0.19 0.2 0.61 0.21 0.22 0.57</TABLE>
+    </DEFINITION>
+    <DEFINITION>
+        <FOR>Mother</FOR>
+        <TABLE>0.2 0.8</TABLE>
+    </DEFINITION>
+</NETWORK>
