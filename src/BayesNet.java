@@ -35,10 +35,12 @@ public class BayesNet {
 
     private static double calculateJointProbabilityFromVarOutcomeList(List<VariableOutcome> variableList) {
         // calculate the joint probability - each variable is independent of the net given the parents
-        double res = 1.0;
-        for (int i = 0; i < variableList.size(); i++) {
+        Counter counter = Counter.instance;
+        double res = variableList.get(0).getProbability(variableList); // get the probability of the first variable
+        for (int i = 1; i < variableList.size(); i++) {
             VariableOutcome variableOutcome = variableList.get(i);
             res *= variableOutcome.getProbability(variableList);
+            counter.incrementProductCounter();
         }
 
         return res;
@@ -82,6 +84,7 @@ public class BayesNet {
 
         // go through all combinations of the hidden variables and the query variables (the evidence is fixed)
         // and calculate the joint probability for each combination
+        Counter counter = Counter.instance;
         for (List<VariableOutcome> queryCombo : queryCombos) {
             for (List<VariableOutcome> hiddenCombo : hiddenCombos) {
                 List<VariableOutcome> fullAssignment = new ArrayList<>();
@@ -93,13 +96,21 @@ public class BayesNet {
 
                 // if the query matches the evidence, add to the numerator
                 if (matchesQuery(queryCombo, qp.queryOutcomes)) {
+                    if (numerator > 0) {
+                        counter.incrementSumCounter();
+                    }
                     numerator += prob;
-                } else { // we will add the numerator to the denominator in the edn
+                } else { // we will add the numerator to the denominator in the end
+                    if (denominator > 0) {
+                        counter.incrementSumCounter();
+                    }
                     denominator += prob;
                 }
+
             }
         }
         denominator += numerator;
+        counter.incrementSumCounter();
 
         // return the normalized probability
         return numerator / denominator;
