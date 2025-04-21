@@ -3,8 +3,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class BayesNet {
-    // init variable to outcome class
-
     HashMap<String, Variable> variables;
 
     public BayesNet() {
@@ -116,29 +114,6 @@ public class BayesNet {
         return numerator / denominator;
     }
 
-    // Helper class to hold parsed query/evidence parts
-
-    /**
-     * Helper class to hold parsed query and evidence parts.
-     * It contains the query outcomes, evidence outcomes, and their respective variable names.
-     * This is used to simplify the parsing and matching process.
-     */
-    private static class QueryParts {
-        List<VariableOutcome> queryOutcomes;
-        List<VariableOutcome> evidenceOutcomes;
-        Set<String> queryVarNames;
-        Set<String> evidenceVarNames;
-
-        QueryParts(List<VariableOutcome> q, List<VariableOutcome> e) {
-            this.queryOutcomes = q;
-            this.evidenceOutcomes = e;
-            this.queryVarNames = new HashSet<>();
-            this.evidenceVarNames = new HashSet<>();
-            for (VariableOutcome vo : q) this.queryVarNames.add(vo.variable.getName());
-            for (VariableOutcome vo : e) this.evidenceVarNames.add(vo.variable.getName());
-        }
-    }
-
     /**
      * Parses the query and evidence from the given string.
      * The string format is assumed to be "P(X=outcome1, Y=outcome2 | Z=outcome3, W=outcome4)"
@@ -183,8 +158,61 @@ public class BayesNet {
     }
 
     private double calculateProbForComplexQueryMethod2(String query) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        QueryParts qp = parseQueryAndEvidence(query);
+        // sort the `qp.evidenceOutcomes` and the `qp.queryOutcomes` by the variable name
+        qp.queryOutcomes.sort(Comparator.comparing(vo -> vo.variable.getName()));
+        qp.evidenceOutcomes.sort(Comparator.comparing(vo -> vo.variable.getName()));
+
+        // get the query and evidence variables
+        Set<String> allObservedVars = new HashSet<>();
+        allObservedVars.addAll(qp.queryVarNames);
+        allObservedVars.addAll(qp.evidenceVarNames);
+
+        // get the hidden variables
+        Set<String> hiddenVars = new HashSet<>(this.variables.keySet());
+        hiddenVars.removeAll(allObservedVars);
+        // sort the `hiddenVars` by the variable name
+        List<String> sortedHiddenVars = new ArrayList<>(hiddenVars);
+        sortedHiddenVars.sort(Comparator.naturalOrder());
+
+        // get all the factors of the network
+        List<Factor> factors = new ArrayList<>();
+        for (Variable v : this.variables.values()) {
+            factors.add(v.getFactor());
+        }
+
+        // set evidence for all factors without modifying the list during iteration
+        List<Factor> updatedFactors = new ArrayList<>();
+        for (Factor factor : factors) {
+            Factor updatedFactor = factor.setEvidences(qp.evidenceOutcomes);
+            if (updatedFactor.getSize() > 1) { // take only the factors that have more than one row
+                updatedFactors.add(updatedFactor);
+            }
+        }
+        factors = updatedFactors;
+
+        // start eliminating the hidden variables
+        for (String hiddenVar : sortedHiddenVars) {
+            Variable hiddenVariable = this.variables.get(hiddenVar);
+            List<Factor> factorsWithHiddenVar = new ArrayList<>();
+            List<Factor> factorsWithoutHiddenVar = new ArrayList<>();
+            for (Factor factor : factors) {
+                if (factor.getVariables().contains(hiddenVariable)) {
+                    factorsWithHiddenVar.add(factor);
+                } else {
+                    factorsWithoutHiddenVar.add(factor);
+                }
+            }
+            Factor joinedFactor = Factor.join(factorsWithHiddenVar);
+            Factor joinedFactorEliminated = joinedFactor.eliminate(hiddenVariable);
+            factorsWithoutHiddenVar.add(joinedFactorEliminated);
+            factors = factorsWithoutHiddenVar;
+        }
+        Factor finalFactor = Factor.join(factors);
+        finalFactor = finalFactor.normalize();
+        return finalFactor.getProbability(qp.queryOutcomes);
     }
+
 
     private double calculateProbForComplexQueryMethod3(String query) {
         throw new UnsupportedOperationException("Not implemented yet");
@@ -211,7 +239,6 @@ public class BayesNet {
             Variable parentVariable = this.variables.get(parentName);
             assert parentVariable != null : "Parent variable not found: " + parentName;
             parentVariables.add(parentVariable);
-            parentVariable.addChildren(variable);
         }
 
         variable.setParents(parentVariables);
@@ -268,5 +295,29 @@ public class BayesNet {
         return prod.collect(Collectors.toList());
     }
 
+    public Variable getVariable(String j) {
+        return this.variables.get(j);
+    }
 
+
+    /**
+     * Helper class to hold parsed query and evidence parts.
+     * It contains the query outcomes, evidence outcomes, and their respective variable names.
+     * This is used to simplify the parsing and matching process.
+     */
+    private static class QueryParts {
+        List<VariableOutcome> queryOutcomes;
+        List<VariableOutcome> evidenceOutcomes;
+        Set<String> queryVarNames;
+        Set<String> evidenceVarNames;
+
+        QueryParts(List<VariableOutcome> q, List<VariableOutcome> e) {
+            this.queryOutcomes = q;
+            this.evidenceOutcomes = e;
+            this.queryVarNames = new HashSet<>();
+            this.evidenceVarNames = new HashSet<>();
+            for (VariableOutcome vo : q) this.queryVarNames.add(vo.variable.getName());
+            for (VariableOutcome vo : e) this.evidenceVarNames.add(vo.variable.getName());
+        }
+    }
 }

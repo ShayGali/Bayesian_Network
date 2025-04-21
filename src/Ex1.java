@@ -6,10 +6,7 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -80,9 +77,26 @@ public class Ex1 {
         // open the input.txt file
         try {
             BufferedReader reader = new BufferedReader(new FileReader("input.txt"));
+            BufferedWriter writer = new BufferedWriter(new FileWriter("myoutput.txt"));
             String fileName = reader.readLine();
             bayesNet = getBayesNet(fileName);
+
+            /*
+            // read query line by line until EOF
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue; // skip empty lines
+                }
+                double res = bayesNet.answerQuery(line);
+                // write the output to writer
+                writer.write(String.format("%.5f,%d,%d\n", res, Counter.instance.getSumCounter(), Counter.instance.getProductCounter()));
+                Counter.instance.reset();
+            }
+
             reader.close();
+            writer.close();
+             */
         } catch (IOException | ParserConfigurationException | SAXException e) {
             throw new RuntimeException(e);
         }
@@ -94,14 +108,20 @@ public class Ex1 {
 //        System.out.println(A.getParents().stream().map(Variable::getName).collect(Collectors.toList()));
 //        System.out.println(factorA.toString());
 
-//        String query = "P(B=F,E=T,A=T,M=T,J=F)";
-//        String query = "P(B=T|J=T,M=T),1";
-        String query = "P(J=T|B=T),1";
+        String query1 = "P(B=F,E=T,A=T,M=T,J=F)";
         Counter counter = Counter.instance;
-        double res = bayesNet.answerQuery(query);
-        System.out.printf("%s = %.5f\n", query, res);
-        System.out.println("Sum Counter: " + counter.getSumCounter());
-        System.out.println("Product Counter: " + counter.getProductCounter());
+        double res = bayesNet.answerQuery(query1);
+        System.out.printf("%s = %.5f,%d,%d\n", query1, res, counter.getSumCounter(), counter.getProductCounter());
+        counter.reset();
+
+        String query2 = "P(B=T|J=T,M=T),2";
+        res = bayesNet.answerQuery(query2);
+        System.out.printf("%s = %.5f,%d,%d\n", query2, res, counter.getSumCounter(), counter.getProductCounter());
+        counter.reset();
+
+        String query3 = "P(J=T|B=T),2";
+        res = bayesNet.answerQuery(query3);
+        System.out.printf("%s = %.5f,%d,%d\n", query3, res, counter.getSumCounter(), counter.getProductCounter());
         counter.reset();
 
     }

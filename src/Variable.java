@@ -1,13 +1,9 @@
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Variable {
     private final String name;
-    private List<String> outcomes;
+    private final List<String> outcomes;
     private List<Variable> parents;
-    private Set<Variable> children;
 
     private double[] probabilities;
 
@@ -15,9 +11,8 @@ public class Variable {
 
     public Variable(String name, List<String> outcomes) {
         this.name = name;
-        this.outcomes = outcomes;
+        this.outcomes = new ArrayList<>(outcomes);
         this.parents = new ArrayList<>();
-        this.children = new HashSet<>();
         this.probabilities = null;
         factor = null;
     }
@@ -34,9 +29,6 @@ public class Variable {
         this.parents = parents;
     }
 
-    public void addChildren(Variable child) {
-        this.children.add(child);
-    }
 
     public List<String> getOutcomes() {
         return outcomes;
@@ -54,6 +46,19 @@ public class Variable {
             factor = new Factor(copyParents, probabilities);
         }
         return factor;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Variable variable = (Variable) o;
+        return Objects.equals(name, variable.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 
     @Override

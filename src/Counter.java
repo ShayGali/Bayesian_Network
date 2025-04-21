@@ -9,6 +9,10 @@ public class Counter {
         this.productCounter = 0;
     }
 
+    public void incrementSumCounter(int value) {
+        sumCounter += value;
+    }
+
     public void incrementSumCounter() {
         sumCounter++;
     }
@@ -24,10 +28,14 @@ public class Counter {
     public int getProductCounter() {
         return productCounter;
     }
+    public void incrementProductCounter(int value) {
+        productCounter += value;
+    }
 
     public void reset() {
         sumCounter = 0;
         productCounter = 0;
     }
+
 
 }
