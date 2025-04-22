@@ -17,10 +17,9 @@ public class Factor {
      */
     public Factor(List<Variable> variables, double[] probabilities) {
         this.variables = new ArrayList<>(variables);
-        this.factorTable = new LinkedHashMap<>(); // change this to `LinkedHashMap` to keep insertion order
+        this.factorTable = new LinkedHashMap<>();
         buildFactorTable(Arrays.copyOf(probabilities, probabilities.length));
     }
-
 
     /**
      * Constructs a Factor for the given variables and their CPT table.
@@ -30,43 +29,14 @@ public class Factor {
      */
     public Factor(List<Variable> variables, Map<List<String>, Double> factorTable) {
         this.variables = new ArrayList<>(variables);
-        this.factorTable = new LinkedHashMap<>(factorTable); // change this to `LinkedHashMap` to keep insertion order
+        this.factorTable = new LinkedHashMap<>(factorTable);
 
-    }
-
-    /**
-     * Returns the probability for the given assignment of variable outcomes.
-     *
-     * @param vars The list of VariableOutcome representing the assignment.
-     * @return The probability for the assignment.
-     * @throws IllegalArgumentException if the assignment is incomplete or not found.
-     */
-    public double getProbability(List<VariableOutcome> vars) {
-        // map to hold the variable and its corresponding outcome
-        Map<Variable, String> outcomeMap = new HashMap<>();
-        for (VariableOutcome vo : vars) {
-            outcomeMap.put(vo.variable, vo.outcome);
-        }
-
-        // create the `key` for the factor table (the outcomes of the variables)
-        List<String> key = new ArrayList<>();
-        for (Variable currentVar : variables) {
-            String outcome = outcomeMap.get(currentVar);
-            if (outcome == null) {
-                throw new IllegalArgumentException("Variable not found in the factor: " + currentVar.getName());
-            }
-            key.add(outcome);
-        }
-
-        if (factorTable.containsKey(key)) {
-            return factorTable.get(key);
-        } else {
-            throw new IllegalArgumentException("Combination of outcomes not found in the factor table: " + key);
-        }
     }
 
     /**
      * Builds the factor table mapping each combination of outcomes to its probability.
+     *
+     * @param probabilities The probability values for each combination of outcomes.
      */
     private void buildFactorTable(double[] probabilities) {
         int numVariables = variables.size();
@@ -103,37 +73,36 @@ public class Factor {
     }
 
     /**
-     * Returns a string representation of the factor's CPT.
+     * Returns the probability for the given assignment of variable outcomes.
      *
-     * @return The CPT as a formatted string.
+     * @param vars The list of VariableOutcome representing the assignment.
+     * @return The probability for the assignment.
+     * @throws IllegalArgumentException if the assignment is incomplete or not found.
      */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Factor CPT:\n");
-
-        // Header
-        for (Variable variable : variables) {
-            sb.append(String.format("%-10s | ", variable.getName()));
+    public double getProbability(List<VariableOutcome> vars) {
+        // map to hold the variable and its corresponding outcome
+        Map<Variable, String> outcomeMap = new HashMap<>();
+        for (VariableOutcome vo : vars) {
+            outcomeMap.put(vo.variable, vo.outcome);
         }
-        sb.append("Probability\n");
 
-        // Separator line
-        for (int i = 0; i < variables.size(); i++) {
-            sb.append("-----------|-");
-        }
-        sb.append("-----------\n");
-
-
-        for (Map.Entry<List<String>, Double> entry : factorTable.entrySet()) {
-            List<String> combination = entry.getKey();
-            for (String outcome : combination) {
-                sb.append(String.format("%-10s | ", outcome));
+        // create the `key` for the factor table (the outcomes of the variables)
+        List<String> key = new ArrayList<>();
+        for (Variable currentVar : variables) {
+            String outcome = outcomeMap.get(currentVar);
+            if (outcome == null) {
+                throw new IllegalArgumentException("Variable not found in the factor: " + currentVar.getName());
             }
-            sb.append(String.format("%.7f%n", entry.getValue()));
+            key.add(outcome);
         }
-        return sb.toString();
+
+        if (factorTable.containsKey(key)) {
+            return factorTable.get(key);
+        } else {
+            throw new IllegalArgumentException("Combination of outcomes not found in the factor table: " + key);
+        }
     }
+
 
     /**
      * Eliminates a variable from the factor by summing out its outcomes.
@@ -175,10 +144,6 @@ public class Factor {
         return new Factor(newVariables, newFactorTable);
     }
 
-
-    public List<Variable> getVariables() {
-        return variables;
-    }
 
     /**
      * Sets the evidence for the factor. Will remove each row that does not match the evidence, and remove the corresponding variable from the factor.
@@ -330,6 +295,11 @@ public class Factor {
         return result;
     }
 
+    /**
+     * Normalizes the factor by dividing each probability by the sum of all probabilities.
+     *
+     * @return A new factor with normalized probabilities.
+     */
     public Factor normalize() {
         Counter counter = Counter.instance;
         // sum up all probabilities
@@ -355,4 +325,42 @@ public class Factor {
     public int getSize() {
         return factorTable.size();
     }
+
+    public List<Variable> getVariables() {
+        return variables;
+    }
+
+    /**
+     * Returns a string representation of the factor's CPT.
+     *
+     * @return The CPT as a formatted string.
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Factor CPT:\n");
+
+        // Header
+        for (Variable variable : variables) {
+            sb.append(String.format("%-10s | ", variable.getName()));
+        }
+        sb.append("Probability\n");
+
+        // Separator line
+        for (int i = 0; i < variables.size(); i++) {
+            sb.append("-----------|-");
+        }
+        sb.append("-----------\n");
+
+
+        for (Map.Entry<List<String>, Double> entry : factorTable.entrySet()) {
+            List<String> combination = entry.getKey();
+            for (String outcome : combination) {
+                sb.append(String.format("%-10s | ", outcome));
+            }
+            sb.append(String.format("%.7f%n", entry.getValue()));
+        }
+        return sb.toString();
+    }
+
 }

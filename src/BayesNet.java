@@ -11,7 +11,8 @@ public class BayesNet {
 
     /**
      * Adds a variable to the BayesNet. <b> Make sure to add the variable first, the function asserts that the variable and all parent variables are present in the BayesNet. </b>
-     * @param name the name of the variable
+     *
+     * @param name     the name of the variable
      * @param outcomes the possible outcomes of the variable
      */
     public void addVariable(String name, List<String> outcomes) {
@@ -37,7 +38,7 @@ public class BayesNet {
             parentVariables.add(parentVariable);
         }
         variable.setParents(parentVariables);
-        variable.setProbabilities(probabilities);
+        variable.setCpt(probabilities);
     }
 
     public double answerQuery(String query) {
@@ -155,9 +156,27 @@ public class BayesNet {
     }
 
     private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
-        // remove all hidden that are not relevant to the query
-        // a hidden variable is relevant if it is a ancestor of variable
+        List<Variable> relevantHiddenVars = filterRelevantHiddenVars(queryOutcomes, evidenceOutcomes, orderedHiddenVars);
+        List<Factor> factors = collectInitialFactors(relevantHiddenVars, queryOutcomes, evidenceOutcomes);
+        factors = setEvidenceOnFactors(factors, evidenceOutcomes);
 
+        factors = eliminateHiddenVariables(factors, relevantHiddenVars);
+
+        Factor finalFactor = Factor.join(factors);
+        finalFactor = finalFactor.normalize();
+        return finalFactor.getProbability(queryOutcomes);
+    }
+
+
+    /**
+     * Helper method to filter the relevant hidden variables based on the query and evidence outcomes.
+     *
+     * @param queryOutcomes     the query variable outcomes
+     * @param evidenceOutcomes  the evidence variable outcomes
+     * @param orderedHiddenVars the ordered list of hidden variables
+     * @return a list of relevant hidden variables (the order is preserved)
+     */
+    private List<Variable> filterRelevantHiddenVars(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
         boolean[] isHiddenRelevant = new boolean[orderedHiddenVars.size()];
         for (VariableOutcome vo : queryOutcomes) {
             for (int i = 0; i < orderedHiddenVars.size(); i++) {
@@ -166,7 +185,6 @@ public class BayesNet {
                 }
             }
         }
-
         for (VariableOutcome vo : evidenceOutcomes) {
             for (int i = 0; i < orderedHiddenVars.size(); i++) {
                 if (!isHiddenRelevant[i] && vo.variable.isDescendantOf(orderedHiddenVars.get(i))) {
@@ -174,46 +192,66 @@ public class BayesNet {
                 }
             }
         }
-
-//         remove all the hidden variables that are not relevant
-        List<Variable> orderedHiddenVarsFiltered = new ArrayList<>();
+        List<Variable> filtered = new ArrayList<>();
         for (int i = 0; i < orderedHiddenVars.size(); i++) {
             if (isHiddenRelevant[i]) {
-                orderedHiddenVarsFiltered.add(orderedHiddenVars.get(i));
+                filtered.add(orderedHiddenVars.get(i));
             }
         }
+        return filtered;
+    }
 
-        // get all the factors of the network (except the unrelevant hidden variables)
+
+    /**
+     * Helper method to collect the factors for given variables.
+     *
+     * @param relevantHiddenVars the list of relevant hidden variables
+     * @param queryOutcomes      the query variable outcomes
+     * @param evidenceOutcomes   the evidence variable outcomes
+     * @return a list of factors for the relevant hidden variables, query outcomes, and evidence outcomes
+     */
+    private List<Factor> collectInitialFactors(List<Variable> relevantHiddenVars, List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes) {
         List<Factor> factors = new ArrayList<>();
-        for (Variable v : orderedHiddenVarsFiltered) {
-            Factor factor = v.getFactor();
-            factors.add(factor);
+        for (Variable v : relevantHiddenVars) {
+            factors.add(v.getFactor());
         }
-
-        // add the evidence factors
         for (VariableOutcome vo : evidenceOutcomes) {
-            Factor factor = vo.variable.getFactor();
-            factors.add(factor);
+            factors.add(vo.variable.getFactor());
         }
-        // add the query factors
         for (VariableOutcome vo : queryOutcomes) {
-            Factor factor = vo.variable.getFactor();
-            factors.add(factor);
+            factors.add(vo.variable.getFactor());
         }
+        return factors;
+    }
 
-        // set evidence for all factors without modifying the list during iteration
+    /**
+     * Hlper method to set evidence on the factors.
+     *
+     * @param factors          the list of factors
+     * @param evidenceOutcomes the evidence outcomes
+     * @return a list of updated factors with evidence set
+     */
+    private List<Factor> setEvidenceOnFactors(List<Factor> factors, List<VariableOutcome> evidenceOutcomes) {
         List<Factor> updatedFactors = new ArrayList<>();
         for (Factor factor : factors) {
             Factor updatedFactor = factor.setEvidences(evidenceOutcomes);
-            if (updatedFactor.getSize() > 1) { // take only the factors that have more than one row
+            if (updatedFactor.getSize() > 1) { // only keep factors with more than one row
                 updatedFactors.add(updatedFactor);
             }
         }
+        return updatedFactors;
+    }
 
-        factors = updatedFactors;
 
-        // start eliminating the hidden variables
-        for (Variable hiddenVariable : orderedHiddenVarsFiltered) {
+    /**
+     * Eliminates hidden variables from the list of factors.
+     *
+     * @param factors    the list of factors
+     * @param hiddenVars the list of hidden variables to eliminate
+     * @return the updated list of factors after eliminating the hidden variables
+     */
+    private List<Factor> eliminateHiddenVariables(List<Factor> factors, List<Variable> hiddenVars) {
+        for (Variable hiddenVariable : hiddenVars) {
             List<Factor> factorsWithHiddenVar = new ArrayList<>();
             List<Factor> factorsWithoutHiddenVar = new ArrayList<>();
             for (Factor factor : factors) {
@@ -228,11 +266,8 @@ public class BayesNet {
             factorsWithoutHiddenVar.add(joinedFactorEliminated);
             factors = factorsWithoutHiddenVar;
         }
-        Factor finalFactor = Factor.join(factors);
-        finalFactor = finalFactor.normalize();
-        return finalFactor.getProbability(queryOutcomes);
+        return factors;
     }
-
 
     /**
      * Checks if the given assignment of variable outcomes matches the original query outcomes.
@@ -260,7 +295,7 @@ public class BayesNet {
 
 
     /**
-     * Get all combinations of the variable outcomes for the given variable names.
+     * Helper method to get all combinations of the variable outcomes for the given variable names.
      *
      * @param variableNames the names of the variables
      * @return a list of all combinations of the variable outcomes

@@ -1,6 +1,12 @@
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This class represents a variable and its outcome.
+ * For example, if we have a variable A with outcomes {T, F},
+ * then we can create a VariableOutcome object like this:
+ * VariableOutcome outcome = new VariableOutcome(A, "T");
+ */
 public class VariableOutcome {
     Variable variable;
     String outcome;
@@ -15,6 +21,13 @@ public class VariableOutcome {
 
     }
 
+    /**
+     * Get the probability of this variable given the parents.
+     * All the relevant parents must be present in the given list.
+     *
+     * @param given the list of variables that are given.
+     * @return the probability of this variable given the parents.
+     */
     public double getProbability(List<VariableOutcome> given) {
         // remove all the `given` variables that are not in the `parents`
         List<Integer> indices = new ArrayList<>();

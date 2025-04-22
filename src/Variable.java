@@ -7,15 +7,12 @@ public class Variable {
     private final List<String> outcomes;
     private List<Variable> parents;
 
-    private double[] probabilities;
-
     private Factor factor;
 
     public Variable(String name, List<String> outcomes) {
         this.name = name;
         this.outcomes = new ArrayList<>(outcomes);
         this.parents = new ArrayList<>();
-        this.probabilities = null;
         factor = null;
     }
 
@@ -23,8 +20,13 @@ public class Variable {
         return name;
     }
 
-    public void setProbabilities(double[] probabilities) {
-        this.probabilities = probabilities;
+    public void setCpt(double[] probabilities) {
+        if(parents == null){
+            throw new IllegalArgumentException("Parents are not set for variable " + name);
+        }
+        List<Variable> copyParents = new ArrayList<>(parents);
+        copyParents.add(this);
+        factor = new Factor(copyParents, probabilities);
     }
 
     public void setParents(List<Variable> parents) { // NEW
@@ -41,15 +43,15 @@ public class Variable {
     }
 
     public Factor getFactor() {
-        if (factor == null) {
-            // create a new factor with copy of the variables and this element, and the probabilities
-            List<Variable> copyParents = new ArrayList<>(parents);
-            copyParents.add(this);
-            factor = new Factor(copyParents, probabilities);
-        }
         return factor;
     }
 
+    /**
+     * check if this variable is a descendant of the given variable
+     *
+     * @param variable the variable that is can be a parent
+     * @return true if this variable is a descendant of the given variable (the given variable is an ancestor of this variable)
+     */
     public boolean isDescendantOf(Variable variable) {
         if (variable == null) return false;
         if (this == variable) return true;

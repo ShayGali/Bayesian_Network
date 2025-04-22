@@ -1,3 +1,6 @@
+/**
+ * Helper class to count the number of times a sum or product is calculated.
+ */
 public class Counter {
     public static Counter instance = new Counter();
 
