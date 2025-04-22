@@ -9,6 +9,37 @@ public class BayesNet {
         this.variables = new HashMap<>();
     }
 
+    /**
+     * Adds a variable to the BayesNet. <b> Make sure to add the variable first, the function asserts that the variable and all parent variables are present in the BayesNet. </b>
+     * @param name the name of the variable
+     * @param outcomes the possible outcomes of the variable
+     */
+    public void addVariable(String name, List<String> outcomes) {
+        Variable variable = new Variable(name, outcomes);
+        this.variables.put(name, variable);
+    }
+
+    /**
+     * Adds a dependency to the BayesNet. <b> Make sure to add the variable first, the function asserts that the variable and all parent variables are present in the BayesNet. </b>
+     *
+     * @param variableName  the name of the variable
+     * @param parents       the names of the parent variables
+     * @param probabilities the probabilities associated with the variable
+     * @throws AssertionError if the variable or any parent variable is not found
+     */
+    public void addDependency(String variableName, List<String> parents, double[] probabilities) {
+        Variable variable = this.variables.get(variableName);
+        assert variable != null : "Variable not found: " + variableName;
+        List<Variable> parentVariables = new ArrayList<>();
+        for (String parentName : parents) {
+            Variable parentVariable = this.variables.get(parentName);
+            assert parentVariable != null : "Parent variable not found: " + parentName;
+            parentVariables.add(parentVariable);
+        }
+        variable.setParents(parentVariables);
+        variable.setProbabilities(probabilities);
+    }
+
     public double answerQuery(String query) {
         // if the query parenthesis, its joint probability query
         if (query.endsWith(")")) {
@@ -33,13 +64,13 @@ public class BayesNet {
 
     private static double calculateJointProbabilityFromVarOutcomeList(List<VariableOutcome> variableList) {
         // calculate the joint probability - each variable is independent of the net given the parents
-        Counter counter = Counter.instance;
         double res = variableList.get(0).getProbability(variableList); // get the probability of the first variable
         for (int i = 1; i < variableList.size(); i++) {
-            VariableOutcome variableOutcome = variableList.get(i);
-            res *= variableOutcome.getProbability(variableList);
-            counter.incrementProductCounter();
+            res *= variableList.get(i).getProbability(variableList);
         }
+
+        // we make `variableList.size() - 1` multiplications
+        Counter.instance.incrementProductCounter(variableList.size() - 1);
 
         return res;
     }
@@ -47,7 +78,6 @@ public class BayesNet {
 
     private double calculateProbForComplexQuery(String query) {
         char method = query.charAt(query.length() - 1); // get the method
-
         switch (method) {
             case '1':
                 return calculateProbForComplexQueryMethod1(query);
@@ -58,80 +88,151 @@ public class BayesNet {
             default:
                 throw new IllegalArgumentException("Invalid method: " + method);
         }
-
     }
 
     private double calculateProbForComplexQueryMethod1(String query) {
         // parse the query and evidence
-        QueryParts qp = parseQueryAndEvidence(query);
-
-        // get the query and evidence variables
-        Set<String> allObservedVars = new HashSet<>();
-        allObservedVars.addAll(qp.queryVarNames);
-        allObservedVars.addAll(qp.evidenceVarNames);
-
-        Set<String> hiddenVars = new HashSet<>(this.variables.keySet());
-        hiddenVars.removeAll(allObservedVars);
+        QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(variables.values()));
 
         // get all combinations of the hidden variables and the query variables
-        List<List<VariableOutcome>> hiddenCombos = getAllVariableOutcomes(hiddenVars);
-        List<List<VariableOutcome>> queryCombos = getAllVariableOutcomes(qp.queryVarNames);
+        List<List<VariableOutcome>> hiddenCombos = getAllVariableOutcomes(qp.hiddenVar);
+        List<List<VariableOutcome>> queryCombos = getAllVariableOutcomes(qp.queryVar);
 
         double numerator = 0.0; // the probability of the query & evidence
         double denominator = 0.0; // the probability of the (query & evidence) + (!query & evidence)
 
         // go through all combinations of the hidden variables and the query variables (the evidence is fixed)
         // and calculate the joint probability for each combination
-        Counter counter = Counter.instance;
         for (List<VariableOutcome> queryCombo : queryCombos) {
             for (List<VariableOutcome> hiddenCombo : hiddenCombos) {
+                // get the full assignment of the variables
                 List<VariableOutcome> fullAssignment = new ArrayList<>();
                 fullAssignment.addAll(hiddenCombo);
                 fullAssignment.addAll(qp.evidenceOutcomes);
                 fullAssignment.addAll(queryCombo);
-
+                // calculate the joint probability for the full assignment
                 double prob = calculateJointProbabilityFromVarOutcomeList(fullAssignment);
 
                 // if the query matches the evidence, add to the numerator
                 if (matchesQuery(queryCombo, qp.queryOutcomes)) {
                     if (numerator > 0) {
-                        counter.incrementSumCounter();
+                        Counter.instance.incrementSumCounter();
                     }
                     numerator += prob;
                 } else { // we will add the numerator to the denominator in the end
                     if (denominator > 0) {
-                        counter.incrementSumCounter();
+                        Counter.instance.incrementSumCounter();
                     }
                     denominator += prob;
                 }
 
             }
         }
+
         denominator += numerator;
-        counter.incrementSumCounter();
+        Counter.instance.incrementSumCounter();
 
         // return the normalized probability
         return numerator / denominator;
     }
 
-    /**
-     * Parses the query and evidence from the given string.
-     * The string format is assumed to be "P(X=outcome1, Y=outcome2 | Z=outcome3, W=outcome4)"
-     * where X, Y are query variables and Z, W are evidence variables.
-     *
-     * @param query the query string
-     * @return a QueryParts object containing the parsed query and evidence outcomes
-     */
-    private QueryParts parseQueryAndEvidence(String query) {
-        String stripped = query.substring(2, query.length() - 3);
-        String[] parts = stripped.split("\\|");
-        String queryPart = parts[0].trim();
-        String evidencePart = parts[1].trim();
+    private double calculateProbForComplexQueryMethod2(String query) {
+        QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(variables.values()));
 
-        List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
-        List<VariableOutcome> evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
-        return new QueryParts(queryOutcomes, evidenceOutcomes);
+        // sort the `hiddenVars` by the variable name
+        List<Variable> sortedHiddenVars = qp.hiddenVar.stream()
+                .sorted(Comparator.comparing(Variable::getName))
+                .collect(Collectors.toList());
+
+        return variableElimination(
+                qp.queryOutcomes,
+                qp.evidenceOutcomes,
+                sortedHiddenVars);
     }
+
+    private double calculateProbForComplexQueryMethod3(String query) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
+        // remove all hidden that are not relevant to the query
+        // a hidden variable is relevant if it is a ancestor of variable
+
+        boolean[] isHiddenRelevant = new boolean[orderedHiddenVars.size()];
+        for (VariableOutcome vo : queryOutcomes) {
+            for (int i = 0; i < orderedHiddenVars.size(); i++) {
+                if (!isHiddenRelevant[i] && vo.variable.isDescendantOf(orderedHiddenVars.get(i))) {
+                    isHiddenRelevant[i] = true;
+                }
+            }
+        }
+
+        for (VariableOutcome vo : evidenceOutcomes) {
+            for (int i = 0; i < orderedHiddenVars.size(); i++) {
+                if (!isHiddenRelevant[i] && vo.variable.isDescendantOf(orderedHiddenVars.get(i))) {
+                    isHiddenRelevant[i] = true;
+                }
+            }
+        }
+
+//         remove all the hidden variables that are not relevant
+        List<Variable> orderedHiddenVarsFiltered = new ArrayList<>();
+        for (int i = 0; i < orderedHiddenVars.size(); i++) {
+            if (isHiddenRelevant[i]) {
+                orderedHiddenVarsFiltered.add(orderedHiddenVars.get(i));
+            }
+        }
+
+        // get all the factors of the network (except the unrelevant hidden variables)
+        List<Factor> factors = new ArrayList<>();
+        for (Variable v : orderedHiddenVarsFiltered) {
+            Factor factor = v.getFactor();
+            factors.add(factor);
+        }
+
+        // add the evidence factors
+        for (VariableOutcome vo : evidenceOutcomes) {
+            Factor factor = vo.variable.getFactor();
+            factors.add(factor);
+        }
+        // add the query factors
+        for (VariableOutcome vo : queryOutcomes) {
+            Factor factor = vo.variable.getFactor();
+            factors.add(factor);
+        }
+
+        // set evidence for all factors without modifying the list during iteration
+        List<Factor> updatedFactors = new ArrayList<>();
+        for (Factor factor : factors) {
+            Factor updatedFactor = factor.setEvidences(evidenceOutcomes);
+            if (updatedFactor.getSize() > 1) { // take only the factors that have more than one row
+                updatedFactors.add(updatedFactor);
+            }
+        }
+
+        factors = updatedFactors;
+
+        // start eliminating the hidden variables
+        for (Variable hiddenVariable : orderedHiddenVarsFiltered) {
+            List<Factor> factorsWithHiddenVar = new ArrayList<>();
+            List<Factor> factorsWithoutHiddenVar = new ArrayList<>();
+            for (Factor factor : factors) {
+                if (factor.getVariables().contains(hiddenVariable)) {
+                    factorsWithHiddenVar.add(factor);
+                } else {
+                    factorsWithoutHiddenVar.add(factor);
+                }
+            }
+            Factor joinedFactor = Factor.join(factorsWithHiddenVar);
+            Factor joinedFactorEliminated = joinedFactor.eliminate(hiddenVariable);
+            factorsWithoutHiddenVar.add(joinedFactorEliminated);
+            factors = factorsWithoutHiddenVar;
+        }
+        Factor finalFactor = Factor.join(factors);
+        finalFactor = finalFactor.normalize();
+        return finalFactor.getProbability(queryOutcomes);
+    }
+
 
     /**
      * Checks if the given assignment of variable outcomes matches the original query outcomes.
@@ -157,99 +258,52 @@ public class BayesNet {
         return true;
     }
 
-    private double calculateProbForComplexQueryMethod2(String query) {
-        QueryParts qp = parseQueryAndEvidence(query);
-        // sort the `qp.evidenceOutcomes` and the `qp.queryOutcomes` by the variable name
-        qp.queryOutcomes.sort(Comparator.comparing(vo -> vo.variable.getName()));
-        qp.evidenceOutcomes.sort(Comparator.comparing(vo -> vo.variable.getName()));
 
-        // get the query and evidence variables
-        Set<String> allObservedVars = new HashSet<>();
-        allObservedVars.addAll(qp.queryVarNames);
-        allObservedVars.addAll(qp.evidenceVarNames);
-
-        // get the hidden variables
-        Set<String> hiddenVars = new HashSet<>(this.variables.keySet());
-        hiddenVars.removeAll(allObservedVars);
-        // sort the `hiddenVars` by the variable name
-        List<String> sortedHiddenVars = new ArrayList<>(hiddenVars);
-        sortedHiddenVars.sort(Comparator.naturalOrder());
-
-        // get all the factors of the network
-        List<Factor> factors = new ArrayList<>();
-        for (Variable v : this.variables.values()) {
-            factors.add(v.getFactor());
+    /**
+     * Get all combinations of the variable outcomes for the given variable names.
+     *
+     * @param variableNames the names of the variables
+     * @return a list of all combinations of the variable outcomes
+     */
+    private List<List<VariableOutcome>> getAllVariableOutcomes(Set<Variable> variableNames) {
+        Stream<List<VariableOutcome>> prod = Stream.of(Collections.emptyList());
+        for (Variable var : variableNames) {
+            prod = prod.flatMap(prefix ->
+                    var.getOutcomes().stream()
+                            .map(elem -> {
+                                List<VariableOutcome> copy = new ArrayList<>(prefix);
+                                copy.add(new VariableOutcome(var, elem));
+                                return copy;
+                            })
+            );
         }
-
-        // set evidence for all factors without modifying the list during iteration
-        List<Factor> updatedFactors = new ArrayList<>();
-        for (Factor factor : factors) {
-            Factor updatedFactor = factor.setEvidences(qp.evidenceOutcomes);
-            if (updatedFactor.getSize() > 1) { // take only the factors that have more than one row
-                updatedFactors.add(updatedFactor);
-            }
-        }
-        factors = updatedFactors;
-
-        // start eliminating the hidden variables
-        for (String hiddenVar : sortedHiddenVars) {
-            Variable hiddenVariable = this.variables.get(hiddenVar);
-            List<Factor> factorsWithHiddenVar = new ArrayList<>();
-            List<Factor> factorsWithoutHiddenVar = new ArrayList<>();
-            for (Factor factor : factors) {
-                if (factor.getVariables().contains(hiddenVariable)) {
-                    factorsWithHiddenVar.add(factor);
-                } else {
-                    factorsWithoutHiddenVar.add(factor);
-                }
-            }
-            Factor joinedFactor = Factor.join(factorsWithHiddenVar);
-            Factor joinedFactorEliminated = joinedFactor.eliminate(hiddenVariable);
-            factorsWithoutHiddenVar.add(joinedFactorEliminated);
-            factors = factorsWithoutHiddenVar;
-        }
-        Factor finalFactor = Factor.join(factors);
-        finalFactor = finalFactor.normalize();
-        return finalFactor.getProbability(qp.queryOutcomes);
-    }
-
-
-    private double calculateProbForComplexQueryMethod3(String query) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    public void addVariable(String name, List<String> outcomes) {
-        Variable variable = new Variable(name, outcomes);
-        this.variables.put(name, variable);
+        return prod.collect(Collectors.toList());
     }
 
     /**
-     * Adds a dependency to the BayesNet. <b> Make sure to add the variable first, the function asserts that the variable and all parent variables are present in the BayesNet. </b>
-     *
-     * @param variableName  the name of the variable
-     * @param parents       the names of the parent variables
-     * @param probabilities the probabilities associated with the variable
-     * @throws AssertionError if the variable or any parent variable is not found
+     * Helper class to hold parsed query and evidence parts.
+     * It contains the query outcomes, evidence outcomes, and their respective variable names.
+     * This is used to simplify the parsing and matching process.
      */
-    public void addDependency(String variableName, List<String> parents, double[] probabilities) {
-        Variable variable = this.variables.get(variableName);
-        assert variable != null : "Variable not found: " + variableName;
-        List<Variable> parentVariables = new ArrayList<>();
-        for (String parentName : parents) {
-            Variable parentVariable = this.variables.get(parentName);
-            assert parentVariable != null : "Parent variable not found: " + parentName;
-            parentVariables.add(parentVariable);
-        }
+    private static class QueryParts {
+        List<VariableOutcome> queryOutcomes;
+        List<VariableOutcome> evidenceOutcomes;
+        Set<Variable> queryVar;
+        Set<Variable> hiddenVar;
 
-        variable.setParents(parentVariables);
+        QueryParts(List<VariableOutcome> q, List<VariableOutcome> e, Set<Variable> variables) {
+            this.queryOutcomes = q;
+            this.evidenceOutcomes = e;
+            this.queryVar = new HashSet<>();
+            this.hiddenVar = new HashSet<>(variables);
+            for (VariableOutcome vo : q) {
+                this.queryVar.add(vo.variable);
+                this.hiddenVar.remove(vo.variable);
+            }
+            for (VariableOutcome vo : e) {
+                this.hiddenVar.remove(vo.variable);
+            }
 
-        variable.setProbabilities(probabilities);
-
-    }
-
-    public void printVariables() {
-        for (Variable variable : this.variables.values()) {
-            System.out.println(variable.getName() + ": " + variable.getOutcomes() + " " + variable.getParents().stream().map(Variable::getName).collect(Collectors.toList()));
         }
     }
 
@@ -274,50 +328,21 @@ public class BayesNet {
     }
 
     /**
-     * Get all combinations of the variable outcomes for the given variable names.
+     * Parses the query and evidence from the given string.
+     * The query is expected to be in the format "P(X=F,Y=T|Z=T,W=F),n". Where n in 1,2,3 (the method), and the outcomes need to be part of the variable possible outcomes.
      *
-     * @param variableNames the names of the variables
-     * @return a list of all combinations of the variable outcomes
+     * @param query     the query string
+     * @param variables the set of variables in the BayesNet
+     * @return a QueryParts object containing the query and evidence outcomes
      */
-    private List<List<VariableOutcome>> getAllVariableOutcomes(Set<String> variableNames) {
-        Stream<List<VariableOutcome>> prod = Stream.of(Collections.emptyList());
-        for (String varName : variableNames) {
-            Variable var = this.variables.get(varName);
-            prod = prod.flatMap(prefix ->
-                    var.getOutcomes().stream()
-                            .map(elem -> {
-                                List<VariableOutcome> copy = new ArrayList<>(prefix);
-                                copy.add(new VariableOutcome(var, elem));
-                                return copy;
-                            })
-            );
-        }
-        return prod.collect(Collectors.toList());
-    }
+    private QueryParts parseQueryAndEvidence(String query, Set<Variable> variables) {
+        String stripped = query.substring(2, query.length() - 3);
+        String[] parts = stripped.split("\\|");
+        String queryPart = parts[0].trim();
+        String evidencePart = parts[1].trim();
 
-    public Variable getVariable(String j) {
-        return this.variables.get(j);
-    }
-
-
-    /**
-     * Helper class to hold parsed query and evidence parts.
-     * It contains the query outcomes, evidence outcomes, and their respective variable names.
-     * This is used to simplify the parsing and matching process.
-     */
-    private static class QueryParts {
-        List<VariableOutcome> queryOutcomes;
-        List<VariableOutcome> evidenceOutcomes;
-        Set<String> queryVarNames;
-        Set<String> evidenceVarNames;
-
-        QueryParts(List<VariableOutcome> q, List<VariableOutcome> e) {
-            this.queryOutcomes = q;
-            this.evidenceOutcomes = e;
-            this.queryVarNames = new HashSet<>();
-            this.evidenceVarNames = new HashSet<>();
-            for (VariableOutcome vo : q) this.queryVarNames.add(vo.variable.getName());
-            for (VariableOutcome vo : e) this.evidenceVarNames.add(vo.variable.getName());
-        }
+        List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
+        List<VariableOutcome> evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
+        return new QueryParts(queryOutcomes, evidenceOutcomes, variables);
     }
 }

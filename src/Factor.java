@@ -243,9 +243,7 @@ public class Factor {
      * Joins two factors into one. The resulting factor will have all variables from both factors.
      * The probabilities will be calculated based on the joint distribution.
      *
-     * @param f1
-     * @param f2
-     * @return
+     * @return The resulting factor with all variables and their probabilities.
      */
     public static Factor join(Factor f1, Factor f2) {
         Counter counter = Counter.instance;

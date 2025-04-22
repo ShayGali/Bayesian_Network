@@ -6,8 +6,13 @@ public class VariableOutcome {
     String outcome;
 
     VariableOutcome(Variable variable, String outcome) {
+        if (!variable.getOutcomes().contains(outcome)) {
+            throw new IllegalArgumentException("Outcome " + outcome + " is not valid for variable " + variable.getName());
+        }
+
         this.variable = variable;
         this.outcome = outcome;
+
     }
 
     public double getProbability(List<VariableOutcome> given) {

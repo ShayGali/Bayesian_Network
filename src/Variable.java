@@ -1,4 +1,6 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 public class Variable {
     private final String name;
@@ -46,6 +48,17 @@ public class Variable {
             factor = new Factor(copyParents, probabilities);
         }
         return factor;
+    }
+
+    public boolean isDescendantOf(Variable variable) {
+        if (variable == null) return false;
+        if (this == variable) return true;
+        for (Variable parent : parents) {
+            if (parent.isDescendantOf(variable)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
