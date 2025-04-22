@@ -81,7 +81,6 @@ public class Ex1 {
             String fileName = reader.readLine();
             bayesNet = getBayesNet(fileName);
 
-            /*
             // read query line by line until EOF
             String line;
             while ((line = reader.readLine()) != null) {
@@ -89,14 +88,14 @@ public class Ex1 {
                     continue; // skip empty lines
                 }
                 double res = bayesNet.answerQuery(line);
-                // write the output to writer
+                // write the output to the writer
                 writer.write(String.format("%.5f,%d,%d\n", res, Counter.instance.getSumCounter(), Counter.instance.getProductCounter()));
+                System.out.printf("%.5f,%d,%d%n", res, Counter.instance.getSumCounter(), Counter.instance.getProductCounter());
                 Counter.instance.reset();
             }
 
             reader.close();
             writer.close();
-             */
         } catch (IOException | ParserConfigurationException | SAXException e) {
             throw new RuntimeException(e);
         }
@@ -107,22 +106,22 @@ public class Ex1 {
 //        Factor factorA = A.getFactor();
 //        System.out.println(A.getParents().stream().map(Variable::getName).collect(Collectors.toList()));
 //        System.out.println(factorA.toString());
-
-        String query1 = "P(B=F,E=T,A=T,M=T,J=F)";
-        Counter counter = Counter.instance;
-        double res = bayesNet.answerQuery(query1);
-        System.out.printf("%s = %.5f,%d,%d\n", query1, res, counter.getSumCounter(), counter.getProductCounter());
-        counter.reset();
-
-        String query2 = "P(B=T|J=T,M=T),2";
-        res = bayesNet.answerQuery(query2);
-        System.out.printf("%s = %.5f,%d,%d\n", query2, res, counter.getSumCounter(), counter.getProductCounter());
-        counter.reset();
-
-        String query3 = "P(J=T|B=T),2";
-        res = bayesNet.answerQuery(query3);
-        System.out.printf("%s = %.5f,%d,%d\n", query3, res, counter.getSumCounter(), counter.getProductCounter());
-        counter.reset();
+//
+//        String query1 = "P(B=F,E=T,A=T,M=T,J=F)";
+//        Counter counter = Counter.instance;
+//        double res = bayesNet.answerQuery(query1);
+//        System.out.printf("%s = %.5f,%d,%d\n", query1, res, counter.getSumCounter(), counter.getProductCounter());
+//        counter.reset();
+//
+//        String query2 = "P(B=T|J=T,M=T),2";
+//        res = bayesNet.answerQuery(query2);
+//        System.out.printf("%s = %.5f,%d,%d\n", query2, res, counter.getSumCounter(), counter.getProductCounter());
+//        counter.reset();
+//
+//        String query3 = "P(J=T|B=T),2";
+//        res = bayesNet.answerQuery(query3);
+//        System.out.printf("%s = %.5f,%d,%d\n", query3, res, counter.getSumCounter(), counter.getProductCounter());
+//        counter.reset();
 
     }
 

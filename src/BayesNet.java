@@ -152,7 +152,8 @@ public class BayesNet {
     }
 
     private double calculateProbForComplexQueryMethod3(String query) {
-        throw new UnsupportedOperationException("Not implemented yet");
+//        throw new UnsupportedOperationException("Not implemented yet");
+        return -1;
     }
 
     private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
@@ -263,7 +264,9 @@ public class BayesNet {
             }
             Factor joinedFactor = Factor.join(factorsWithHiddenVar);
             Factor joinedFactorEliminated = joinedFactor.eliminate(hiddenVariable);
-            factorsWithoutHiddenVar.add(joinedFactorEliminated);
+            if (joinedFactorEliminated.getSize() > 1) { // only keep factors with more than one row
+                factorsWithoutHiddenVar.add(joinedFactorEliminated);
+            }
             factors = factorsWithoutHiddenVar;
         }
         return factors;
@@ -371,13 +374,19 @@ public class BayesNet {
      * @return a QueryParts object containing the query and evidence outcomes
      */
     private QueryParts parseQueryAndEvidence(String query, Set<Variable> variables) {
+        System.out.println(query);
         String stripped = query.substring(2, query.length() - 3);
         String[] parts = stripped.split("\\|");
         String queryPart = parts[0].trim();
+        List<VariableOutcome> evidenceOutcomes;
+        if (parts.length == 1){
+            evidenceOutcomes = new ArrayList<>();
+        }else{
         String evidencePart = parts[1].trim();
+            evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
+        }
 
         List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
-        List<VariableOutcome> evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
         return new QueryParts(queryOutcomes, evidenceOutcomes, variables);
     }
 }
