@@ -376,7 +376,6 @@ public class BayesNet {
      * @return a QueryParts object containing the query and evidence outcomes
      */
     private QueryParts parseQueryAndEvidence(String query, Set<Variable> variables) {
-        System.out.println(query);
         String stripped = query.substring(2, query.length() - 3);
         String[] parts = stripped.split("\\|");
         String queryPart = parts[0].trim();
