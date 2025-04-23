@@ -159,6 +159,7 @@ public class BayesNet {
     private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
         List<Variable> relevantHiddenVars = filterRelevantHiddenVars(queryOutcomes, evidenceOutcomes, orderedHiddenVars);
         List<Factor> factors = collectInitialFactors(relevantHiddenVars, queryOutcomes, evidenceOutcomes);
+
         factors = setEvidenceOnFactors(factors, evidenceOutcomes);
 
         factors = eliminateHiddenVariables(factors, relevantHiddenVars);
@@ -193,6 +194,7 @@ public class BayesNet {
                 }
             }
         }
+
         List<Variable> filtered = new ArrayList<>();
         for (int i = 0; i < orderedHiddenVars.size(); i++) {
             if (isHiddenRelevant[i]) {
@@ -379,14 +381,14 @@ public class BayesNet {
         String[] parts = stripped.split("\\|");
         String queryPart = parts[0].trim();
         List<VariableOutcome> evidenceOutcomes;
-        if (parts.length == 1){
+        List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
+        if (parts.length == 1) {
             evidenceOutcomes = new ArrayList<>();
-        }else{
-        String evidencePart = parts[1].trim();
+        } else {
+            String evidencePart = parts[1].trim();
             evidenceOutcomes = parseVariableOutcomes(evidencePart.split(","));
         }
 
-        List<VariableOutcome> queryOutcomes = parseVariableOutcomes(queryPart.split(","));
         return new QueryParts(queryOutcomes, evidenceOutcomes, variables);
     }
 }

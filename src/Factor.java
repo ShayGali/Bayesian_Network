@@ -288,6 +288,9 @@ public class Factor {
             throw new IllegalArgumentException("List of factors is empty.");
         }
 
+        //sort the factors by size
+        factors.sort(Comparator.comparingInt(Factor::getSize));
+
         Factor result = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
             result = join(result, factors.get(i));
