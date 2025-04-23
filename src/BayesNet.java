@@ -79,22 +79,38 @@ public class BayesNet {
 
     private double calculateProbForComplexQuery(String query) {
         char method = query.charAt(query.length() - 1); // get the method
+        QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(this.variables.values()));
+
+        // check if we can get the probability only using the CPT of the query variable
+        if (qp.queryOutcomes.size() == 1){
+            // check if all the evidence variables are parents of the query variable
+            Variable queryVar = qp.queryOutcomes.get(0).variable;
+            boolean allEvidenceAreParents = true;
+            for (VariableOutcome evidence : qp.evidenceOutcomes) {
+                if (!queryVar.getParents().contains(evidence.variable)) {
+                    allEvidenceAreParents = false;
+                    break;
+                }
+            }
+            if (allEvidenceAreParents) {
+                // get the probability of the query variable given the evidence
+                return qp.queryOutcomes.get(0).getProbability(qp.evidenceOutcomes);
+            }
+        }
+
         switch (method) {
             case '1':
-                return calculateProbForComplexQueryMethod1(query);
+                return calculateProbForComplexQueryMethod1(qp);
             case '2':
-                return calculateProbForComplexQueryMethod2(query);
+                return calculateProbForComplexQueryMethod2(qp);
             case '3':
-                return calculateProbForComplexQueryMethod3(query);
+                return calculateProbForComplexQueryMethod3(qp);
             default:
                 throw new IllegalArgumentException("Invalid method: " + method);
         }
     }
 
-    private double calculateProbForComplexQueryMethod1(String query) {
-        // parse the query and evidence
-        QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(variables.values()));
-
+    private double calculateProbForComplexQueryMethod1(QueryParts qp) {
         // get all combinations of the hidden variables and the query variables
         List<List<VariableOutcome>> hiddenCombos = getAllVariableOutcomes(qp.hiddenVar);
         List<List<VariableOutcome>> queryCombos = getAllVariableOutcomes(qp.queryVar);
@@ -137,23 +153,40 @@ public class BayesNet {
         return numerator / denominator;
     }
 
-    private double calculateProbForComplexQueryMethod2(String query) {
-        QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(variables.values()));
-
+    private double calculateProbForComplexQueryMethod2(QueryParts qp) {
         // sort the `hiddenVars` by the variable name
         List<Variable> sortedHiddenVars = qp.hiddenVar.stream()
                 .sorted(Comparator.comparing(Variable::getName))
                 .collect(Collectors.toList());
 
-        return variableElimination(
-                qp.queryOutcomes,
-                qp.evidenceOutcomes,
-                sortedHiddenVars);
+        // start the variable elimination
+        List<Variable> relevantHiddenVars = filterRelevantHiddenVars(qp.queryOutcomes, qp.evidenceOutcomes, sortedHiddenVars);
+        List<Factor> factors = collectInitialFactors(relevantHiddenVars, qp.queryOutcomes, qp.evidenceOutcomes);
+
+        factors = setEvidenceOnFactors(factors, qp.evidenceOutcomes);
+
+        factors = eliminateHiddenVariables(factors, relevantHiddenVars);
+
+        Factor finalFactor = Factor.join(factors);
+        finalFactor = finalFactor.normalize();
+        return finalFactor.getProbability(qp.queryOutcomes);
     }
 
-    private double calculateProbForComplexQueryMethod3(String query) {
-//        throw new UnsupportedOperationException("Not implemented yet");
-        return -1;
+    private double calculateProbForComplexQueryMethod3(QueryParts qp) {
+        List<Variable> relevantHiddenVars = filterRelevantHiddenVars(qp.queryOutcomes, qp.evidenceOutcomes, new ArrayList<>(qp.hiddenVar));
+        List<Factor> factors = collectInitialFactors(relevantHiddenVars, qp.queryOutcomes, qp.evidenceOutcomes);
+
+        factors = setEvidenceOnFactors(factors, qp.evidenceOutcomes);
+
+        // get the order of the hidden variables
+        InteractionGraph ig = new InteractionGraph(factors);
+        List<Variable> orderedHiddenVars = ig.minFillOrder(new HashSet<>(relevantHiddenVars));
+
+        factors = eliminateHiddenVariables(factors, orderedHiddenVars);
+
+        Factor finalFactor = Factor.join(factors);
+        finalFactor = finalFactor.normalize();
+        return finalFactor.getProbability(qp.queryOutcomes);
     }
 
     private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {

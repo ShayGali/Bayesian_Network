@@ -288,8 +288,15 @@ public class Factor {
             throw new IllegalArgumentException("List of factors is empty.");
         }
 
-        //sort the factors by size
-        factors.sort(Comparator.comparingInt(Factor::getSize));
+        //sort the factors by size if the size is the same, sort by the sum of the ASCII value of the variable names
+        factors.sort((f1, f2) -> {
+            if (f1.getSize() != f2.getSize()) {
+                return Integer.compare(f1.getSize(), f2.getSize());
+            }
+            int sum1 = f1.getVariables().stream().mapToInt(v -> v.getName().chars().sum()).sum();
+            int sum2 = f2.getVariables().stream().mapToInt(v -> v.getName().chars().sum()).sum();
+            return Integer.compare(sum1, sum2);
+        });
 
         Factor result = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
