@@ -82,7 +82,7 @@ public class BayesNet {
         QueryParts qp = parseQueryAndEvidence(query, new HashSet<>(this.variables.values()));
 
         // check if we can get the probability only using the CPT of the query variable
-        if (qp.queryOutcomes.size() == 1){
+        if (qp.queryOutcomes.size() == 1) {
             // check if all the evidence variables are parents of the query variable
             Variable queryVar = qp.queryOutcomes.get(0).variable;
             boolean allEvidenceAreParents = true;
@@ -187,19 +187,6 @@ public class BayesNet {
         Factor finalFactor = Factor.join(factors);
         finalFactor = finalFactor.normalize();
         return finalFactor.getProbability(qp.queryOutcomes);
-    }
-
-    private double variableElimination(List<VariableOutcome> queryOutcomes, List<VariableOutcome> evidenceOutcomes, List<Variable> orderedHiddenVars) {
-        List<Variable> relevantHiddenVars = filterRelevantHiddenVars(queryOutcomes, evidenceOutcomes, orderedHiddenVars);
-        List<Factor> factors = collectInitialFactors(relevantHiddenVars, queryOutcomes, evidenceOutcomes);
-
-        factors = setEvidenceOnFactors(factors, evidenceOutcomes);
-
-        factors = eliminateHiddenVariables(factors, relevantHiddenVars);
-
-        Factor finalFactor = Factor.join(factors);
-        finalFactor = finalFactor.normalize();
-        return finalFactor.getProbability(queryOutcomes);
     }
 
 

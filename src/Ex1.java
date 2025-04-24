@@ -75,7 +75,7 @@ public class Ex1 {
     public static void main(String[] args) {
         BayesNet bayesNet;
         String inputFileName = "input.txt";
-        String outputFileName = "myoutput.txt"; // TODO: change this to output.txt before submission
+        String outputFileName = "output.txt";
         try (
                 BufferedReader reader = new BufferedReader(new FileReader(inputFileName));
                 BufferedWriter writer = new BufferedWriter(new FileWriter(outputFileName))
@@ -93,9 +93,6 @@ public class Ex1 {
                 double res = bayesNet.answerQuery(line);
                 // write the output to the writer
                 writer.write(String.format("%.5f,%d,%d\n", res, Counter.instance.getSumCounter(), Counter.instance.getProductCounter()));
-                // TODO: remove DEBUG lines before submission
-                System.out.println(line);
-                System.out.printf("%.5f,%d,%d%n", res, Counter.instance.getSumCounter(), Counter.instance.getProductCounter());
                 Counter.instance.reset();
             }
 
